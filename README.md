@@ -7,6 +7,10 @@ Hardware-specific tuning guide:
 - [AMD AI Max+ 395 Proxmox Optimization](docs/AI_MAX_395_PROXMOX_OPTIMIZATION.md)
 - [AMD AI Max+ 395 Profile Presets](docs/AI_MAX_395_PROFILE_PRESETS.md)
 
+Troubleshooting guide:
+
+- [Ollama ROCm Troubleshooting (Proxmox LXC)](docs/OLLAMA_ROCM_TROUBLESHOOTING.md)
+
 ## What this includes
 
 - `scripts/create_rocm_lxc.sh`
@@ -25,6 +29,8 @@ Hardware-specific tuning guide:
 	- Sets Ollama to listen on a network address/port via systemd override.
 - `scripts/close_ollama_network_in_ct.sh`
 	- Removes the Ollama network override and returns to service defaults.
+- `scripts/set_ollama_memory_profile_in_ct.sh`
+	- Applies a safe Ollama memory profile (context/parallel/model limits) and restarts service.
 
 ## Requirements
 
@@ -119,6 +125,18 @@ Test one backend only:
 sudo bash ./scripts/test_llm_backends_in_ct.sh --ctid 120 --backend vllm
 sudo bash ./scripts/test_llm_backends_in_ct.sh --ctid 120 --backend ollama
 sudo bash ./scripts/test_llm_backends_in_ct.sh --ctid 120 --backend llama-cpp
+```
+
+8) Apply safe Ollama memory profile (recommended for large models):
+
+```bash
+sudo bash ./scripts/set_ollama_memory_profile_in_ct.sh --ctid 120
+```
+
+Custom values example:
+
+```bash
+sudo bash ./scripts/set_ollama_memory_profile_in_ct.sh --ctid 120 --context-length 4096 --num-parallel 1 --max-loaded-models 1 --flash-attention false
 ```
 
 ## Expose Ollama to LAN
