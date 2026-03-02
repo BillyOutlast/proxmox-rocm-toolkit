@@ -19,11 +19,13 @@ Options:
                            Backend target (default: all)
   --venv-path <path>       Python venv path for vLLM (default: /opt/rocm-pytorch-venv)
   --llama-dir <path>       llama.cpp source dir (default: /opt/llama.cpp)
+  --service-user <name>    Service account (default: llm-svc)
 
 Notes:
 - vLLM is installed/updated into the specified ROCm PyTorch venv.
 - Ollama follows official Linux installer flow.
 - llama.cpp is built with HIP support (`-DGGML_HIP=ON`) for ROCm.
+- Services run as an unprivileged nologin user.
 EOF
 }
 
@@ -39,6 +41,7 @@ ACTION="install"
 BACKEND="all"
 VENV_PATH="/opt/rocm-pytorch-venv"
 LLAMA_DIR="/opt/llama.cpp"
+SERVICE_USER="llm-svc"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -47,6 +50,7 @@ while [[ $# -gt 0 ]]; do
     --backend) BACKEND="$2"; shift 2 ;;
     --venv-path) VENV_PATH="$2"; shift 2 ;;
     --llama-dir) LLAMA_DIR="$2"; shift 2 ;;
+    --service-user) SERVICE_USER="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *)
       echo "Unknown argument: $1" >&2
@@ -88,7 +92,7 @@ if ! pct status "${CTID}" | grep -q "status: running"; then
 fi
 
 echo "Running ${ACTION} for ${BACKEND} in CT ${CTID}..."
-pct exec "${CTID}" -- env ACTION="${ACTION}" BACKEND="${BACKEND}" VENV_PATH="${VENV_PATH}" LLAMA_DIR="${LLAMA_DIR}" bash -s <<'IN_CT'
+pct exec "${CTID}" -- env ACTION="${ACTION}" BACKEND="${BACKEND}" VENV_PATH="${VENV_PATH}" LLAMA_DIR="${LLAMA_DIR}" SERVICE_USER="${SERVICE_USER}" bash -s <<'IN_CT'
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
@@ -104,6 +108,21 @@ apt install -y \
   zstd \
   python3 \
   python3-pip
+
+ensure_service_user() {
+  if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
+    useradd --system --create-home --home-dir "/var/lib/$SERVICE_USER" --shell /usr/sbin/nologin "$SERVICE_USER"
+  fi
+
+  for group in video render; do
+    if getent group "$group" >/dev/null 2>&1; then
+      usermod -aG "$group" "$SERVICE_USER"
+    fi
+  done
+
+  install -d -m 0755 -o "$SERVICE_USER" -g "$SERVICE_USER" "/var/lib/$SERVICE_USER"
+  install -d -m 0755 -o "$SERVICE_USER" -g "$SERVICE_USER" "/var/lib/$SERVICE_USER/models"
+}
 
 install_or_update_vllm() {
   if [[ ! -x "$VENV_PATH/bin/python" ]]; then
@@ -127,7 +146,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=root
+User=$SERVICE_USER
+Group=$SERVICE_USER
+SupplementaryGroups=video render
+WorkingDirectory=/var/lib/$SERVICE_USER
 EnvironmentFile=-/etc/default/vllm
 ExecStart=/bin/bash -lc '$VENV_PATH/bin/python -m vllm.entrypoints.openai.api_server --host 0.0.0.0 --port \${VLLM_PORT:-8000} --model "\${VLLM_MODEL}"'
 Restart=always
@@ -148,6 +170,20 @@ install_or_update_ollama() {
   fi
 
   curl -fsSL https://ollama.com/install.sh | bash
+
+  install -d -m 0755 /etc/systemd/system/ollama.service.d
+  cat >/etc/systemd/system/ollama.service.d/override.conf <<EOF
+[Service]
+User=$SERVICE_USER
+Group=$SERVICE_USER
+SupplementaryGroups=video render
+Environment=HOME=/var/lib/$SERVICE_USER
+Environment=OLLAMA_MODELS=/var/lib/$SERVICE_USER/models
+WorkingDirectory=/var/lib/$SERVICE_USER
+EOF
+
+  chown -R "$SERVICE_USER:$SERVICE_USER" "/var/lib/$SERVICE_USER"
+  systemctl daemon-reload
   systemctl enable --now ollama || true
 }
 
@@ -176,7 +212,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=root
+User=$SERVICE_USER
+Group=$SERVICE_USER
+SupplementaryGroups=video render
+WorkingDirectory=/var/lib/$SERVICE_USER
 EnvironmentFile=-/etc/default/llama-cpp
 ExecStart=/bin/bash -lc '$LLAMA_DIR/build/bin/llama-server -m "\${LLAMA_MODEL}" -c \${LLAMA_CTX:-4096} --host 0.0.0.0 --port \${LLAMA_PORT:-8080}'
 Restart=always
@@ -192,15 +231,19 @@ EOF
 
 case "$BACKEND" in
   vllm)
+    ensure_service_user
     install_or_update_vllm
     ;;
   ollama)
+    ensure_service_user
     install_or_update_ollama
     ;;
   llama-cpp)
+    ensure_service_user
     install_or_update_llama_cpp
     ;;
   all)
+    ensure_service_user
     install_or_update_vllm
     install_or_update_ollama
     install_or_update_llama_cpp

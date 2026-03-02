@@ -18,7 +18,7 @@ Hardware-specific tuning guide:
 - `scripts/create_pytorch_venv_in_ct.sh`
 	- Creates a Python 3.12 venv in the CT and installs AMD ROCm 7.2 PyTorch wheels.
 - `scripts/manage_llm_backends_in_ct.sh`
-	- Installs/updates vLLM, Ollama, and llama.cpp and configures systemd services.
+	- Installs/updates vLLM, Ollama, and llama.cpp and configures systemd services under a nologin service user.
 - `scripts/test_llm_backends_in_ct.sh`
 	- Runs health checks for vLLM, Ollama, and llama.cpp services/endpoints.
 
@@ -79,6 +79,9 @@ sudo bash ./scripts/create_pytorch_venv_in_ct.sh --ctid 120 --venv-path /opt/roc
 ```bash
 sudo bash ./scripts/manage_llm_backends_in_ct.sh --ctid 120 --action install --backend all --venv-path /opt/rocm-pytorch-venv
 ```
+
+By default, this creates and uses `llm-svc` (`/usr/sbin/nologin`) for service execution.
+You can override with `--service-user <name>`.
 
 Update later:
 
