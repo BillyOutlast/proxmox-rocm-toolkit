@@ -4,6 +4,10 @@ Target system: AMD AI Max+ 395, Radeon 8060S (iGPU), 128GB LPDDR5X-8000
 
 This guide is tuned for your toolkit workflow (unprivileged Ubuntu 24.04 LXC + ROCm + vLLM/Ollama/llama.cpp).
 
+Companion preset matrix:
+
+- [AMD AI Max+ 395 Profile Presets](AI_MAX_395_PROFILE_PRESETS.md)
+
 ## 1) Goals and constraints
 
 - Single-node Proxmox with shared CPU+GPU memory (UMA)

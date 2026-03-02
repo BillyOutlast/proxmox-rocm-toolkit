@@ -5,6 +5,7 @@ Toolkit for building an **unprivileged Ubuntu 24.04 LXC** on Proxmox and install
 Hardware-specific tuning guide:
 
 - [AMD AI Max+ 395 Proxmox Optimization](docs/AI_MAX_395_PROXMOX_OPTIMIZATION.md)
+- [AMD AI Max+ 395 Profile Presets](docs/AI_MAX_395_PROFILE_PRESETS.md)
 
 ## What this includes
 
