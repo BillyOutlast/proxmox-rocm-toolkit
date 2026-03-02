@@ -21,6 +21,8 @@ Hardware-specific tuning guide:
 	- Installs/updates vLLM, Ollama, and llama.cpp and configures systemd services under a nologin service user.
 - `scripts/test_llm_backends_in_ct.sh`
 	- Runs health checks for vLLM, Ollama, and llama.cpp services/endpoints.
+- `scripts/expose_ollama_in_ct.sh`
+	- Sets Ollama to listen on a network address/port via systemd override.
 
 ## Requirements
 
@@ -118,6 +120,18 @@ sudo bash ./scripts/test_llm_backends_in_ct.sh --ctid 120 --backend llama-cpp
 ```
 
 ## Expose Ollama to LAN
+
+Use the helper script:
+
+```bash
+sudo bash ./scripts/expose_ollama_in_ct.sh --ctid 120
+```
+
+Optional custom bind/port:
+
+```bash
+sudo bash ./scripts/expose_ollama_in_ct.sh --ctid 120 --listen 0.0.0.0 --port 11434
+```
 
 By default, Ollama may bind to localhost only. To expose it to your network from inside the CT:
 
