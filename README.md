@@ -26,7 +26,7 @@ Toolkit for building an **unprivileged Ubuntu 24.04 LXC** on Proxmox and install
 ```bash
 chmod +x scripts/*.sh
 
-sudo ./scripts/create_rocm_lxc.sh \
+sudo bash ./scripts/create_rocm_lxc.sh \
 	--ctid 120 \
 	--hostname rocm-ct \
 	--template-storage local \
@@ -41,13 +41,13 @@ This script uses:
 2) Configure GPU passthrough on host:
 
 ```bash
-sudo ./scripts/configure_gpu_passthrough.sh --ctid 120
+sudo bash ./scripts/configure_gpu_passthrough.sh --ctid 120
 ```
 
 3) Install ROCm in container:
 
 ```bash
-sudo ./scripts/install_rocm_in_ct.sh --ctid 120 --package rocm
+sudo bash ./scripts/install_rocm_in_ct.sh --ctid 120 --package rocm
 ```
 
 4) Optional manual checks:
@@ -68,7 +68,7 @@ pct exec 120 -- bash -lc '/opt/rocm/bin/rocm-smi || true'
 Example:
 
 ```bash
-sudo ./scripts/install_rocm_in_ct.sh --ctid 120 --package rocm-hip-runtime
+sudo bash ./scripts/install_rocm_in_ct.sh --ctid 120 --package rocm-hip-runtime
 ```
 
 ## Notes for unprivileged LXC
