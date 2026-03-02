@@ -147,14 +147,14 @@ Preset selection quick guide:
 |---|---|---|
 | 7B to 14B | `max` | Highest throughput, more aggressive memory/concurrency. |
 | 20B to 32B | `balanced` | Best first choice for stability on large models. |
-| 30B+ with load failures/OOM | `safe` | Use when `ROCm error: out of memory` appears. |
+| 30B+ with load failures/OOM | `safe` | Uses lower context, `KEEP_ALIVE=0`, and higher GPU overhead reserve. |
 
 If a model fails to load, step down from `max` → `balanced` → `safe` before changing manual values.
 
 Custom values example:
 
 ```bash
-sudo bash ./scripts/set_ollama_memory_profile_in_ct.sh --ctid 120 --context-length 4096 --num-parallel 1 --max-loaded-models 1 --flash-attention false
+sudo bash ./scripts/set_ollama_memory_profile_in_ct.sh --ctid 120 --context-length 4096 --num-parallel 1 --max-loaded-models 1 --flash-attention false --keep-alive 0 --gpu-overhead-bytes 2147483648
 ```
 
 ## Expose Ollama to LAN

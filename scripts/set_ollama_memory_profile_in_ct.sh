@@ -16,6 +16,8 @@ Options:
   --num-parallel <int>       OLLAMA_NUM_PARALLEL (default: 1)
   --max-loaded-models <int>  OLLAMA_MAX_LOADED_MODELS (default: 1)
   --flash-attention <bool>   OLLAMA_FLASH_ATTENTION true|false (default: false)
+  --keep-alive <value>       OLLAMA_KEEP_ALIVE (default preset-specific)
+  --gpu-overhead-bytes <int> OLLAMA_GPU_OVERHEAD in bytes (default preset-specific)
 
 Notes:
   - Preset sets baseline values.
@@ -36,11 +38,15 @@ CONTEXT_LENGTH="8192"
 NUM_PARALLEL="1"
 MAX_LOADED_MODELS="1"
 FLASH_ATTENTION="false"
+KEEP_ALIVE="5m"
+GPU_OVERHEAD_BYTES="1073741824"
 
 EXPLICIT_CONTEXT_LENGTH="no"
 EXPLICIT_NUM_PARALLEL="no"
 EXPLICIT_MAX_LOADED_MODELS="no"
 EXPLICIT_FLASH_ATTENTION="no"
+EXPLICIT_KEEP_ALIVE="no"
+EXPLICIT_GPU_OVERHEAD_BYTES="no"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -50,6 +56,8 @@ while [[ $# -gt 0 ]]; do
     --num-parallel) NUM_PARALLEL="$2"; EXPLICIT_NUM_PARALLEL="yes"; shift 2 ;;
     --max-loaded-models) MAX_LOADED_MODELS="$2"; EXPLICIT_MAX_LOADED_MODELS="yes"; shift 2 ;;
     --flash-attention) FLASH_ATTENTION="$2"; EXPLICIT_FLASH_ATTENTION="yes"; shift 2 ;;
+    --keep-alive) KEEP_ALIVE="$2"; EXPLICIT_KEEP_ALIVE="yes"; shift 2 ;;
+    --gpu-overhead-bytes) GPU_OVERHEAD_BYTES="$2"; EXPLICIT_GPU_OVERHEAD_BYTES="yes"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *)
       echo "Unknown argument: $1" >&2
@@ -65,18 +73,24 @@ case "$PRESET" in
     PRESET_NUM_PARALLEL="1"
     PRESET_MAX_LOADED_MODELS="1"
     PRESET_FLASH_ATTENTION="false"
+    PRESET_KEEP_ALIVE="0"
+    PRESET_GPU_OVERHEAD_BYTES="2147483648"
     ;;
   balanced)
     PRESET_CONTEXT_LENGTH="8192"
     PRESET_NUM_PARALLEL="1"
     PRESET_MAX_LOADED_MODELS="1"
     PRESET_FLASH_ATTENTION="false"
+    PRESET_KEEP_ALIVE="5m"
+    PRESET_GPU_OVERHEAD_BYTES="1073741824"
     ;;
   max)
     PRESET_CONTEXT_LENGTH="16384"
     PRESET_NUM_PARALLEL="2"
     PRESET_MAX_LOADED_MODELS="2"
     PRESET_FLASH_ATTENTION="true"
+    PRESET_KEEP_ALIVE="10m"
+    PRESET_GPU_OVERHEAD_BYTES="536870912"
     ;;
   *)
     echo "--preset must be one of: safe, balanced, max" >&2
@@ -88,11 +102,15 @@ CUSTOM_CONTEXT_LENGTH="$CONTEXT_LENGTH"
 CUSTOM_NUM_PARALLEL="$NUM_PARALLEL"
 CUSTOM_MAX_LOADED_MODELS="$MAX_LOADED_MODELS"
 CUSTOM_FLASH_ATTENTION="$FLASH_ATTENTION"
+CUSTOM_KEEP_ALIVE="$KEEP_ALIVE"
+CUSTOM_GPU_OVERHEAD_BYTES="$GPU_OVERHEAD_BYTES"
 
 CONTEXT_LENGTH="$PRESET_CONTEXT_LENGTH"
 NUM_PARALLEL="$PRESET_NUM_PARALLEL"
 MAX_LOADED_MODELS="$PRESET_MAX_LOADED_MODELS"
 FLASH_ATTENTION="$PRESET_FLASH_ATTENTION"
+KEEP_ALIVE="$PRESET_KEEP_ALIVE"
+GPU_OVERHEAD_BYTES="$PRESET_GPU_OVERHEAD_BYTES"
 
 if [[ "$EXPLICIT_CONTEXT_LENGTH" == "yes" ]]; then
   CONTEXT_LENGTH="$CUSTOM_CONTEXT_LENGTH"
@@ -108,6 +126,14 @@ fi
 
 if [[ "$EXPLICIT_FLASH_ATTENTION" == "yes" ]]; then
   FLASH_ATTENTION="$CUSTOM_FLASH_ATTENTION"
+fi
+
+if [[ "$EXPLICIT_KEEP_ALIVE" == "yes" ]]; then
+  KEEP_ALIVE="$CUSTOM_KEEP_ALIVE"
+fi
+
+if [[ "$EXPLICIT_GPU_OVERHEAD_BYTES" == "yes" ]]; then
+  GPU_OVERHEAD_BYTES="$CUSTOM_GPU_OVERHEAD_BYTES"
 fi
 
 if [[ -z "$CTID" ]]; then
@@ -139,6 +165,16 @@ case "$FLASH_ATTENTION" in
     ;;
 esac
 
+if [[ -z "$KEEP_ALIVE" ]]; then
+  echo "--keep-alive must be non-empty (examples: 0, 5m, 10m)" >&2
+  exit 1
+fi
+
+if ! [[ "$GPU_OVERHEAD_BYTES" =~ ^[0-9]+$ ]]; then
+  echo "--gpu-overhead-bytes must be an integer >= 0" >&2
+  exit 1
+fi
+
 require_root
 
 if ! pct status "$CTID" >/dev/null 2>&1; then
@@ -158,6 +194,8 @@ pct exec "$CTID" -- env \
   NUM_PARALLEL="$NUM_PARALLEL" \
   MAX_LOADED_MODELS="$MAX_LOADED_MODELS" \
   FLASH_ATTENTION="$FLASH_ATTENTION" \
+  KEEP_ALIVE="$KEEP_ALIVE" \
+  GPU_OVERHEAD_BYTES="$GPU_OVERHEAD_BYTES" \
   bash -s <<'IN_CT'
 set -euo pipefail
 
@@ -168,6 +206,8 @@ Environment=OLLAMA_CONTEXT_LENGTH=${CONTEXT_LENGTH}
 Environment=OLLAMA_MAX_LOADED_MODELS=${MAX_LOADED_MODELS}
 Environment=OLLAMA_NUM_PARALLEL=${NUM_PARALLEL}
 Environment=OLLAMA_FLASH_ATTENTION=${FLASH_ATTENTION}
+Environment=OLLAMA_KEEP_ALIVE=${KEEP_ALIVE}
+Environment=OLLAMA_GPU_OVERHEAD=${GPU_OVERHEAD_BYTES}
 EOF
 
 systemctl daemon-reload

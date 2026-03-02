@@ -57,7 +57,7 @@ Preset selection quick guide:
 |---|---|---|
 | 7B to 14B | `max` | Highest throughput, more aggressive memory/concurrency. |
 | 20B to 32B | `balanced` | Best first choice for stability on large models. |
-| 30B+ with load failures/OOM | `safe` | Use when `ROCm error: out of memory` appears. |
+| 30B+ with load failures/OOM | `safe` | Uses lower context, `KEEP_ALIVE=0`, and higher GPU overhead reserve. |
 
 If a model fails to load, step down from `max` → `balanced` → `safe` before manual tuning.
 
