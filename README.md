@@ -2,6 +2,10 @@
 
 Toolkit for building an **unprivileged Ubuntu 24.04 LXC** on Proxmox and installing **ROCm 7.2** with AMD's official Ubuntu package-manager method.
 
+Hardware-specific tuning guide:
+
+- [AMD AI Max+ 395 Proxmox Optimization](docs/AI_MAX_395_PROXMOX_OPTIMIZATION.md)
+
 ## What this includes
 
 - `scripts/create_rocm_lxc.sh`
