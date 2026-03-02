@@ -82,6 +82,13 @@ Pin: release o=repo.radeon.com
 Pin-Priority: 600
 EOF
 
+apt update
+if ! apt-cache policy ${ROCM_PACKAGE} | grep -Eq 'Candidate:\s+(?!\(none\))'; then
+  echo "ROCm package metadata check failed for '${ROCM_PACKAGE}'." >&2
+  apt-cache policy ${ROCM_PACKAGE} || true
+  exit 1
+fi
+
 apt install -y ${ROCM_PACKAGE}
 "
 
