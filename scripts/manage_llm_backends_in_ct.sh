@@ -101,6 +101,7 @@ apt install -y \
   cmake \
   ninja-build \
   pkg-config \
+  zstd \
   python3 \
   python3-pip
 
@@ -141,6 +142,11 @@ EOF
 }
 
 install_or_update_ollama() {
+  if ! command -v zstd >/dev/null 2>&1; then
+    apt update
+    apt install -y zstd
+  fi
+
   curl -fsSL https://ollama.com/install.sh | bash
   systemctl enable --now ollama || true
 }
