@@ -23,6 +23,8 @@ Hardware-specific tuning guide:
 	- Runs health checks for vLLM, Ollama, and llama.cpp services/endpoints.
 - `scripts/expose_ollama_in_ct.sh`
 	- Sets Ollama to listen on a network address/port via systemd override.
+- `scripts/close_ollama_network_in_ct.sh`
+	- Removes the Ollama network override and returns to service defaults.
 
 ## Requirements
 
@@ -131,6 +133,12 @@ Optional custom bind/port:
 
 ```bash
 sudo bash ./scripts/expose_ollama_in_ct.sh --ctid 120 --listen 0.0.0.0 --port 11434
+```
+
+Revert (remove network override):
+
+```bash
+sudo bash ./scripts/close_ollama_network_in_ct.sh --ctid 120
 ```
 
 By default, Ollama may bind to localhost only. To expose it to your network from inside the CT:
