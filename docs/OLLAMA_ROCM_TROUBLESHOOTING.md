@@ -34,6 +34,7 @@ Typical log pattern:
 ### Why this happens
 
 Ollama can detect ROCm correctly but still OOM during model graph/KV allocation, often due to high context size or aggressive defaults.
+If logs show a multimodal architecture such as `qwen3vl` and stack frames under `multimodal.go`, a small-parameter model can still fail due to multimodal graph reservation.
 
 ### Fix
 
@@ -58,6 +59,8 @@ Preset selection quick guide:
 | 7B to 14B | `max` | Highest throughput, more aggressive memory/concurrency. |
 | 20B to 32B | `balanced` | Best first choice for stability on large models. |
 | 30B+ with load failures/OOM | `safe` | Uses lower context, `KEEP_ALIVE=0`, and higher GPU overhead reserve. |
+
+For troubleshooting, test a text-only model first (for example `qwen3:8b`) before VL/multimodal models.
 
 If a model fails to load, step down from `max` → `balanced` → `safe` before manual tuning.
 

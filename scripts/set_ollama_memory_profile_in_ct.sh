@@ -69,12 +69,12 @@ done
 
 case "$PRESET" in
   safe)
-    PRESET_CONTEXT_LENGTH="4096"
+    PRESET_CONTEXT_LENGTH="2048"
     PRESET_NUM_PARALLEL="1"
     PRESET_MAX_LOADED_MODELS="1"
     PRESET_FLASH_ATTENTION="false"
     PRESET_KEEP_ALIVE="0"
-    PRESET_GPU_OVERHEAD_BYTES="2147483648"
+    PRESET_GPU_OVERHEAD_BYTES="4294967296"
     ;;
   balanced)
     PRESET_CONTEXT_LENGTH="8192"
@@ -202,6 +202,7 @@ set -euo pipefail
 install -d /etc/systemd/system/ollama.service.d
 cat >/etc/systemd/system/ollama.service.d/20-memory-tuning.conf <<EOF
 [Service]
+LimitMEMLOCK=infinity
 Environment=OLLAMA_CONTEXT_LENGTH=${CONTEXT_LENGTH}
 Environment=OLLAMA_MAX_LOADED_MODELS=${MAX_LOADED_MODELS}
 Environment=OLLAMA_NUM_PARALLEL=${NUM_PARALLEL}
