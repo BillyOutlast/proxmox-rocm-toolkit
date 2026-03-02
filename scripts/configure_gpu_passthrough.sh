@@ -9,8 +9,8 @@ Usage:
   sudo ./scripts/configure_gpu_passthrough.sh --ctid 120
 
 What it does:
-- Allows /dev/kfd and /dev/dri* device classes in cgroup2
-- Bind-mounts /dev/kfd and /dev/dri into the container
+- Configures Proxmox `devX:` mappings for AMD GPU device nodes
+- Cleans up legacy passthrough lines from prior runs
 - Restarts container if running
 
 Notes:
@@ -71,10 +71,45 @@ append_if_missing() {
   fi
 }
 
-append_if_missing "lxc.cgroup2.devices.allow: c 226:* rwm"
-append_if_missing "lxc.cgroup2.devices.allow: c 235:* rwm"
-append_if_missing "lxc.mount.entry: /dev/kfd dev/kfd none bind,optional,create=file"
-append_if_missing "lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir"
+BACKUP_FILE="${CONF_FILE}.bak.$(date +%s)"
+cp "${CONF_FILE}" "${BACKUP_FILE}"
+
+cleanup_legacy_lines() {
+  sed -i \
+    -e '/^lxc\.cgroup2\.devices\.allow: c 226:\* rwm$/d' \
+    -e '/^lxc\.cgroup2\.devices\.allow: c 235:\* rwm$/d' \
+    -e '/^lxc\.mount\.entry: \/dev\/kfd dev\/kfd none bind,optional,create=file$/d' \
+    -e '/^lxc\.mount\.entry: \/dev\/dri dev\/dri none bind,optional,create=dir$/d' \
+    -e '/^dev[0-9]\+: \/dev\/kfd,.*$/d' \
+    -e '/^dev[0-9]\+: \/dev\/dri\/renderD[0-9]\+,.*$/d' \
+    -e '/^dev[0-9]\+: \/dev\/dri\/card[0-9]\+,.*$/d' \
+    "${CONF_FILE}"
+}
+
+cleanup_legacy_lines
+
+DEVICE_LIST=("/dev/kfd")
+for dev in /dev/dri/renderD* /dev/dri/card*; do
+  [[ -e "$dev" ]] && DEVICE_LIST+=("$dev")
+done
+
+DEV_INDEX=0
+for dev in "${DEVICE_LIST[@]}"; do
+  append_if_missing "dev${DEV_INDEX}: ${dev},gid=44"
+  DEV_INDEX=$((DEV_INDEX + 1))
+done
+
+start_ct_or_rollback() {
+  if pct start "${CTID}"; then
+    return 0
+  fi
+
+  echo "Startup failed after GPU config changes. Restoring backup: ${BACKUP_FILE}" >&2
+  cp "${BACKUP_FILE}" "${CONF_FILE}"
+  echo "Trying to start CT ${CTID} with restored config..." >&2
+  pct start "${CTID}" || true
+  return 1
+}
 
 if pct status "${CTID}" | grep -q "status: running"; then
   echo "Stopping CT ${CTID} to apply new LXC config..."
@@ -93,10 +128,16 @@ if pct status "${CTID}" | grep -q "status: running"; then
   fi
 
   echo "Starting CT ${CTID}..."
-  pct start "${CTID}"
+  if ! start_ct_or_rollback; then
+    echo "Failed to apply GPU passthrough safely. Original config restored." >&2
+    exit 1
+  fi
 else
   echo "Starting CT ${CTID}..."
-  pct start "${CTID}"
+  if ! start_ct_or_rollback; then
+    echo "Failed to apply GPU passthrough safely. Original config restored." >&2
+    exit 1
+  fi
 fi
 
 echo "Done. GPU passthrough directives are present in ${CONF_FILE}."
