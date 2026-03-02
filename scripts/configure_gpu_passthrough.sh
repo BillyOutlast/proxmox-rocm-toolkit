@@ -77,8 +77,23 @@ append_if_missing "lxc.mount.entry: /dev/kfd dev/kfd none bind,optional,create=f
 append_if_missing "lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir"
 
 if pct status "${CTID}" | grep -q "status: running"; then
-  echo "Restarting CT ${CTID} to apply new LXC config..."
-  pct restart "${CTID}"
+  echo "Stopping CT ${CTID} to apply new LXC config..."
+  pct stop "${CTID}"
+
+  for _ in {1..20}; do
+    if pct status "${CTID}" | grep -q "status: stopped"; then
+      break
+    fi
+    sleep 1
+  done
+
+  if ! pct status "${CTID}" | grep -q "status: stopped"; then
+    echo "Container ${CTID} did not stop cleanly. Check 'pct status ${CTID}' and retry." >&2
+    exit 1
+  fi
+
+  echo "Starting CT ${CTID}..."
+  pct start "${CTID}"
 else
   echo "Starting CT ${CTID}..."
   pct start "${CTID}"
