@@ -61,7 +61,7 @@ if ! pct status "${CTID}" | grep -q "status: running"; then
 fi
 
 echo "Installing ROCm package '${ROCM_PACKAGE}' in CT ${CTID}..."
-pct exec "${CTID}" -- bash -lc "
+pct exec "${CTID}" -- env ROCM_PACKAGE="${ROCM_PACKAGE}" bash -lc '
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
@@ -71,26 +71,27 @@ apt install -y ca-certificates gnupg wget
 mkdir -p /etc/apt/keyrings
 wget -qO- https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor > /etc/apt/keyrings/rocm.gpg
 
-cat >/etc/apt/sources.list.d/rocm.list <<'EOF'
+cat >/etc/apt/sources.list.d/rocm.list <<EOF
 deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/7.2 noble main
 deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/graphics/7.2/ubuntu noble main
 EOF
 
-cat >/etc/apt/preferences.d/rocm-pin-600 <<'EOF'
+cat >/etc/apt/preferences.d/rocm-pin-600 <<EOF
 Package: *
 Pin: release o=repo.radeon.com
 Pin-Priority: 600
 EOF
 
 apt update
-if ! apt-cache policy ${ROCM_PACKAGE} | grep -Eq 'Candidate:\s+(?!\(none\))'; then
-  echo "ROCm package metadata check failed for '${ROCM_PACKAGE}'." >&2
-  apt-cache policy ${ROCM_PACKAGE} || true
+candidate=$(apt-cache policy "$ROCM_PACKAGE" | awk "/Candidate:/ {print \$2; exit}")
+if [[ -z "$candidate" || "$candidate" == "(none)" ]]; then
+  echo "ROCm package metadata check failed for '$ROCM_PACKAGE'." >&2
+  apt-cache policy "$ROCM_PACKAGE" || true
   exit 1
 fi
 
-apt install -y ${ROCM_PACKAGE}
-"
+apt install -y "$ROCM_PACKAGE"
+'
 
 echo "ROCm install finished. Running quick checks in CT ${CTID}..."
 pct exec "${CTID}" -- bash -lc "
