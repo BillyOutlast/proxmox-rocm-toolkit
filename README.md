@@ -117,6 +117,29 @@ sudo bash ./scripts/test_llm_backends_in_ct.sh --ctid 120 --backend ollama
 sudo bash ./scripts/test_llm_backends_in_ct.sh --ctid 120 --backend llama-cpp
 ```
 
+## Expose Ollama to LAN
+
+By default, Ollama may bind to localhost only. To expose it to your network from inside the CT:
+
+```bash
+pct exec 120 -- bash -lc 'install -d /etc/systemd/system/ollama.service.d'
+pct exec 120 -- bash -lc 'cat >/etc/systemd/system/ollama.service.d/network.conf <<"EOF"
+[Service]
+Environment=OLLAMA_HOST=0.0.0.0:11434
+EOF'
+pct exec 120 -- bash -lc 'systemctl daemon-reload && systemctl restart ollama'
+```
+
+Verify bind address and test from another machine:
+
+```bash
+pct exec 120 -- bash -lc 'ss -ltnp | grep 11434 || true'
+curl http://<ct-ip>:11434/api/tags
+```
+
+If unreachable, allow TCP/11434 in Proxmox firewall (Datacenter/Node/CT) and CT firewall (`ufw`) as needed.
+Ollama has no built-in auth by default, so only expose on trusted networks or behind an authenticated reverse proxy.
+
 
 
 ## ROCm package options
