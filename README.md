@@ -10,6 +10,8 @@ Toolkit for building an **unprivileged Ubuntu 24.04 LXC** on Proxmox and install
 	- Adds `/dev/kfd` + `/dev/dri` passthrough and cgroup permissions in LXC config.
 - `scripts/install_rocm_in_ct.sh`
 	- Registers ROCm 7.2 `noble` apt repos and installs a chosen ROCm meta package.
+- `scripts/create_pytorch_venv_in_ct.sh`
+	- Creates a Python 3.12 venv in the CT and installs AMD ROCm 7.2 PyTorch wheels.
 
 ## Requirements
 
@@ -55,6 +57,12 @@ sudo bash ./scripts/install_rocm_in_ct.sh --ctid 120 --package rocm
 ```bash
 pct exec 120 -- bash -lc '/opt/rocm/bin/rocminfo | head -n 40'
 pct exec 120 -- bash -lc '/opt/rocm/bin/rocm-smi || true'
+```
+
+5) Create PyTorch ROCm venv in CT:
+
+```bash
+sudo bash ./scripts/create_pytorch_venv_in_ct.sh --ctid 120 --venv-path /opt/rocm-pytorch-venv
 ```
 
 ## ROCm package options
@@ -105,3 +113,4 @@ ROCm install flow follows AMD’s Ubuntu package-manager guidance for ROCm 7.2 a
 Reference:
 
 - https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/install-methods/package-manager/package-manager-ubuntu.html
+- https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installryz/native_linux/install-pytorch.html
