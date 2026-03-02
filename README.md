@@ -12,6 +12,10 @@ Toolkit for building an **unprivileged Ubuntu 24.04 LXC** on Proxmox and install
 	- Registers ROCm 7.2 `noble` apt repos and installs a chosen ROCm meta package.
 - `scripts/create_pytorch_venv_in_ct.sh`
 	- Creates a Python 3.12 venv in the CT and installs AMD ROCm 7.2 PyTorch wheels.
+- `scripts/manage_llm_backends_in_ct.sh`
+	- Installs/updates vLLM, Ollama, and llama.cpp and configures systemd services.
+- `scripts/test_llm_backends_in_ct.sh`
+	- Runs health checks for vLLM, Ollama, and llama.cpp services/endpoints.
 
 ## Requirements
 
@@ -65,6 +69,48 @@ pct exec 120 -- bash -lc '/opt/rocm/bin/rocm-smi || true'
 sudo bash ./scripts/create_pytorch_venv_in_ct.sh --ctid 120 --venv-path /opt/rocm-pytorch-venv
 ```
 
+6) Install LLM backends + services in CT:
+
+```bash
+sudo bash ./scripts/manage_llm_backends_in_ct.sh --ctid 120 --action install --backend all --venv-path /opt/rocm-pytorch-venv
+```
+
+Update later:
+
+```bash
+sudo bash ./scripts/manage_llm_backends_in_ct.sh --ctid 120 --action update --backend all --venv-path /opt/rocm-pytorch-venv
+```
+
+Backend-specific examples:
+
+```bash
+sudo bash ./scripts/manage_llm_backends_in_ct.sh --ctid 120 --action install --backend vllm --venv-path /opt/rocm-pytorch-venv
+sudo bash ./scripts/manage_llm_backends_in_ct.sh --ctid 120 --action install --backend ollama
+sudo bash ./scripts/manage_llm_backends_in_ct.sh --ctid 120 --action install --backend llama-cpp
+```
+
+7) Test backend services/endpoints:
+
+```bash
+sudo bash ./scripts/test_llm_backends_in_ct.sh --ctid 120 --backend all
+```
+
+Verbose diagnostics on failures:
+
+```bash
+sudo bash ./scripts/test_llm_backends_in_ct.sh --ctid 120 --backend all --verbose
+```
+
+Test one backend only:
+
+```bash
+sudo bash ./scripts/test_llm_backends_in_ct.sh --ctid 120 --backend vllm
+sudo bash ./scripts/test_llm_backends_in_ct.sh --ctid 120 --backend ollama
+sudo bash ./scripts/test_llm_backends_in_ct.sh --ctid 120 --backend llama-cpp
+```
+
+
+
 ## ROCm package options
 
 `install_rocm_in_ct.sh` defaults to `rocm`, but you can pass alternatives, for example:
@@ -114,3 +160,6 @@ Reference:
 
 - https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/install-methods/package-manager/package-manager-ubuntu.html
 - https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installryz/native_linux/install-pytorch.html
+- https://docs.vllm.ai/en/latest/getting_started/installation/gpu/
+- https://docs.ollama.com/linux
+- https://github.com/ggml-org/llama.cpp
