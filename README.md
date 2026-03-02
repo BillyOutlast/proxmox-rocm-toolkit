@@ -5,7 +5,7 @@ Toolkit for building an **unprivileged Ubuntu 24.04 LXC** on Proxmox and install
 ## What this includes
 
 - `scripts/create_rocm_lxc.sh`
-	- Creates an unprivileged Ubuntu 24.04 container using `pct`.
+	- Creates an unprivileged Ubuntu 24.04 container using community-scripts `ct/ubuntu.sh`.
 - `scripts/configure_gpu_passthrough.sh`
 	- Adds `/dev/kfd` + `/dev/dri` passthrough and cgroup permissions in LXC config.
 - `scripts/install_rocm_in_ct.sh`
@@ -16,7 +16,7 @@ Toolkit for building an **unprivileged Ubuntu 24.04 LXC** on Proxmox and install
 - Proxmox VE host with a working AMD GPU stack exposing:
 	- `/dev/kfd`
 	- `/dev/dri`
-- Ubuntu 24.04 LXC template available in Proxmox storage.
+- Template and container storage names available in Proxmox (for example `local` and `local-lvm`).
 - Run scripts on the Proxmox host as `root`.
 
 ## Quick start
@@ -29,9 +29,14 @@ chmod +x scripts/*.sh
 sudo ./scripts/create_rocm_lxc.sh \
 	--ctid 120 \
 	--hostname rocm-ct \
-	--template local:vztmpl/ubuntu-24.04-standard_24.04-1_amd64.tar.zst \
-	--storage local-lvm
+	--template-storage local \
+	--container-storage local-lvm
 ```
+
+This script uses:
+
+- `https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/ubuntu.sh`
+- (internally by that script) `https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/install/ubuntu-install.sh`
 
 2) Configure GPU passthrough on host:
 
@@ -76,6 +81,18 @@ pct exec 120 -- bash -lc 'usermod -aG video,render <your-user>'
 ```
 
 - A CT restart is often required after changing LXC device mappings.
+
+## Community scripts (direct usage)
+
+If you want to run the upstream script directly (interactive), use:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/ubuntu.sh)"
+```
+
+Repository:
+
+- https://github.com/community-scripts/ProxmoxVE
 
 ## Alignment with AMD docs
 

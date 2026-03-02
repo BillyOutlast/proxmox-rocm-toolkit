@@ -3,17 +3,17 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Create an unprivileged Ubuntu 24.04 LXC on Proxmox.
+Create an unprivileged Ubuntu 24.04 LXC on Proxmox using community-scripts.
 
 Usage:
   sudo ./scripts/create_rocm_lxc.sh \
     --ctid 120 \
     --hostname rocm-ct \
-    --template local:vztmpl/ubuntu-24.04-standard_24.04-1_amd64.tar.zst \
-    --storage local-lvm
+    --template-storage local \
+    --container-storage local-lvm
 
 Optional:
-  --rootfs-size 32            (GiB, default: 32)
+  --rootfs-size 32            (GiB, default: 32; mapped to var_disk)
   --cores 8                   (default: 8)
   --memory 16384              (MiB, default: 16384)
   --swap 2048                 (MiB, default: 2048)
@@ -23,10 +23,12 @@ Optional:
   --dns 1.1.1.1               (optional)
   --password 'StrongPass123'  (optional)
   --onboot 1                  (default: 1)
+  --script-ref main           (default: main; can be a commit SHA)
 
 Notes:
 - Run this on a Proxmox host as root.
-- This only creates the container. GPU passthrough and ROCm install are separate steps.
+- Uses https://raw.githubusercontent.com/community-scripts/ProxmoxVE/<ref>/ct/ubuntu.sh
+- The community script creates Ubuntu and runs ubuntu-install.sh internally.
 EOF
 }
 
@@ -39,8 +41,8 @@ require_root() {
 
 CTID=""
 HOSTNAME=""
-TEMPLATE=""
-STORAGE=""
+TEMPLATE_STORAGE="local"
+CONTAINER_STORAGE=""
 ROOTFS_SIZE=32
 CORES=8
 MEMORY=16384
@@ -51,13 +53,15 @@ GATEWAY=""
 DNS=""
 PASSWORD=""
 ONBOOT=1
+SCRIPT_REF="main"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --ctid) CTID="$2"; shift 2 ;;
     --hostname) HOSTNAME="$2"; shift 2 ;;
-    --template) TEMPLATE="$2"; shift 2 ;;
-    --storage) STORAGE="$2"; shift 2 ;;
+    --template) TEMPLATE_STORAGE="$2"; shift 2 ;;
+    --template-storage) TEMPLATE_STORAGE="$2"; shift 2 ;;
+    --container-storage|--storage) CONTAINER_STORAGE="$2"; shift 2 ;;
     --rootfs-size) ROOTFS_SIZE="$2"; shift 2 ;;
     --cores) CORES="$2"; shift 2 ;;
     --memory) MEMORY="$2"; shift 2 ;;
@@ -68,6 +72,7 @@ while [[ $# -gt 0 ]]; do
     --dns) DNS="$2"; shift 2 ;;
     --password) PASSWORD="$2"; shift 2 ;;
     --onboot) ONBOOT="$2"; shift 2 ;;
+    --script-ref) SCRIPT_REF="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *)
       echo "Unknown argument: $1" >&2
@@ -77,7 +82,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "${CTID}" || -z "${HOSTNAME}" || -z "${TEMPLATE}" || -z "${STORAGE}" ]]; then
+if [[ -z "${CTID}" || -z "${HOSTNAME}" || -z "${CONTAINER_STORAGE}" ]]; then
   echo "Missing required arguments." >&2
   usage
   exit 1
@@ -90,36 +95,52 @@ if pct status "${CTID}" >/dev/null 2>&1; then
   exit 1
 fi
 
-NET0="name=eth0,bridge=${BRIDGE},ip=${IP}"
+SCRIPT_URL="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/${SCRIPT_REF}/ct/ubuntu.sh"
+
+echo "Creating LXC ${CTID} (${HOSTNAME}) using community script ${SCRIPT_URL}..."
+
+export APP="Ubuntu"
+export CTID="${CTID}"
+export var_hostname="${HOSTNAME}"
+export var_os="ubuntu"
+export var_version="24.04"
+export var_unprivileged="1"
+export var_cpu="${CORES}"
+export var_ram="${MEMORY}"
+export var_disk="${ROOTFS_SIZE}"
+export var_brg="${BRIDGE}"
+export var_net="${IP}"
+export var_template_storage="${TEMPLATE_STORAGE}"
+export var_container_storage="${CONTAINER_STORAGE}"
+export var_nesting="1"
+export var_keyctl="1"
+export var_mknod="0"
+export var_fuse="no"
+export var_tun="no"
+export var_apt_cacher="no"
+export CT_TIMEZONE="host"
+
 if [[ -n "${GATEWAY}" ]]; then
-  NET0+=",gw=${GATEWAY}"
+  export var_gateway="${GATEWAY}"
 fi
 
-CREATE_ARGS=(
-  "${CTID}"
-  "${TEMPLATE}"
-  --hostname "${HOSTNAME}"
-  --ostype ubuntu
-  --rootfs "${STORAGE}:${ROOTFS_SIZE}"
-  --cores "${CORES}"
-  --memory "${MEMORY}"
-  --swap "${SWAP}"
-  --unprivileged 1
-  --features nesting=1,keyctl=1
-  --onboot "${ONBOOT}"
-  --net0 "${NET0}"
-)
-
 if [[ -n "${DNS}" ]]; then
-  CREATE_ARGS+=(--nameserver "${DNS}")
+  export var_ns="${DNS}"
 fi
 
 if [[ -n "${PASSWORD}" ]]; then
-  CREATE_ARGS+=(--password "${PASSWORD}")
+  export var_pw="${PASSWORD}"
 fi
 
-echo "Creating LXC ${CTID} (${HOSTNAME})..."
-pct create "${CREATE_ARGS[@]}"
+bash -c "$(curl -fsSL "${SCRIPT_URL}")"
+
+if [[ "${ONBOOT}" == "1" ]]; then
+  pct set "${CTID}" --onboot 1 >/dev/null
+fi
+
+if [[ "${SWAP}" != "0" ]]; then
+  pct set "${CTID}" --swap "${SWAP}" >/dev/null
+fi
 
 echo "Starting container ${CTID}..."
 pct start "${CTID}"
