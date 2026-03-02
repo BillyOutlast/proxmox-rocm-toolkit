@@ -133,6 +133,24 @@ sudo bash ./scripts/test_llm_backends_in_ct.sh --ctid 120 --backend llama-cpp
 sudo bash ./scripts/set_ollama_memory_profile_in_ct.sh --ctid 120
 ```
 
+Use built-in presets:
+
+```bash
+sudo bash ./scripts/set_ollama_memory_profile_in_ct.sh --ctid 120 --preset safe
+sudo bash ./scripts/set_ollama_memory_profile_in_ct.sh --ctid 120 --preset balanced
+sudo bash ./scripts/set_ollama_memory_profile_in_ct.sh --ctid 120 --preset max
+```
+
+Preset selection quick guide:
+
+| Model size (typical) | Suggested preset | Notes |
+|---|---|---|
+| 7B to 14B | `max` | Highest throughput, more aggressive memory/concurrency. |
+| 20B to 32B | `balanced` | Best first choice for stability on large models. |
+| 30B+ with load failures/OOM | `safe` | Use when `ROCm error: out of memory` appears. |
+
+If a model fails to load, step down from `max` → `balanced` → `safe` before changing manual values.
+
 Custom values example:
 
 ```bash
